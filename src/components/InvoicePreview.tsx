@@ -1,7 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { Download, MessageCircle, Eye, EyeOff } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import WhatsAppMessageEditor from './WhatsAppMessageEditor';
+
 
 interface CompanyInfo {
   name: string;
@@ -51,7 +52,7 @@ interface InvoiceData {
 interface InvoicePreviewProps {
   data: InvoiceData;
   onDownloadPDF: () => void;
-  onSendWhatsApp: () => void;
+  onSendWhatsApp: (message: string) => void;
   isVisible: boolean;
   onToggleVisibility: () => void;
   isGeneratingPDF: boolean;
@@ -104,32 +105,55 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({
   }, [data.settings.compactMode]);
   
   // Calculate totals
-  const subtotal = data.lineItems ? data.lineItems.reduce((total, item) => {
+  const subtotal = data.lineItems ? data.lineItems.reduce((sum, item) => {
     const quantity = parseFloat(item.quantity) || 0;
     const unitPrice = parseFloat(item.unitPrice) || 0;
-    return total + (quantity * unitPrice);
+    return sum + (quantity * unitPrice);
   }, 0) : parseFloat(data.price) || 0;
 
-  // Calculate tax amount
-  let taxAmount = 0;
-  if (data.useOverallTax && data.overallTax) {
-    const overallTaxRate = parseFloat(data.overallTax) || 0;
-    taxAmount = (subtotal * overallTaxRate) / 100;
-  } else if (data.lineItems) {
-    taxAmount = data.lineItems.reduce((total, item) => {
-      const quantity = parseFloat(item.quantity) || 0;
-      const unitPrice = parseFloat(item.unitPrice) || 0;
-      const itemPrice = quantity * unitPrice;
-      const itemTax = parseFloat(item.tax || '0') || 0;
-      const itemTaxAmount = (itemPrice * itemTax) / 100;
-      return total + itemTaxAmount;
-    }, 0);
-  } else {
-    const taxRate = parseFloat(data.tax) || 0;
-    taxAmount = (subtotal * taxRate) / 100;
-  }
+  const taxAmount = data.lineItems ? data.lineItems.reduce((sum, item) => {
+    const quantity = parseFloat(item.quantity) || 0;
+    const unitPrice = parseFloat(item.unitPrice) || 0;
+    const itemTax = parseFloat(item.tax || '0') || 0;
+    return sum + (quantity * unitPrice * itemTax / 100);
+  }, 0) : (parseFloat(data.price) || 0) * (parseFloat(data.tax) || 0) / 100;
 
   const total = subtotal + taxAmount;
+
+  // Create stable WhatsApp data object using useMemo
+  const whatsappData = useMemo(() => ({
+    clientName: data.clientName,
+    serviceDescription: data.serviceDescription,
+    totalAmount: total,
+    dueDate: data.dueDate,
+    currency: data.settings.currency,
+    lineItems: data.lineItems,
+    language: language,
+    advancePercentage: data.advancePercentage,
+    advanceAmount: data.advanceAmount,
+    advanceType: data.advanceType,
+    deliveryPercentage: data.deliveryPercentage,
+    deliveryAmount: data.deliveryAmount,
+    deliveryType: data.deliveryType,
+    includeDelivery: data.includeDelivery
+  }), [
+    data.clientName,
+    data.serviceDescription,
+    total,
+    data.dueDate,
+    data.settings.currency,
+    data.lineItems,
+    language,
+    data.advancePercentage,
+    data.advanceAmount,
+    data.advanceType,
+    data.deliveryPercentage,
+    data.deliveryAmount,
+    data.deliveryType,
+    data.includeDelivery
+  ]);
+
+
 
   const getCurrencySymbol = (currency: string) => {
     const symbols: { [key: string]: string } = {
@@ -409,22 +433,7 @@ const InvoicePreview: React.FC<InvoicePreviewProps> = ({
             
             {/* WhatsApp Message Editor */}
             <WhatsAppMessageEditor
-              data={{
-                clientName: data.clientName,
-                serviceDescription: data.serviceDescription,
-                totalAmount: total,
-                dueDate: data.dueDate,
-                currency: data.settings.currency,
-                lineItems: data.lineItems,
-                language: language,
-                advancePercentage: data.advancePercentage,
-                advanceAmount: data.advanceAmount,
-                advanceType: data.advanceType,
-                deliveryPercentage: data.deliveryPercentage,
-                deliveryAmount: data.deliveryAmount,
-                deliveryType: data.deliveryType,
-                includeDelivery: data.includeDelivery
-              }}
+              data={whatsappData}
               onSendMessage={onSendWhatsApp}
               pdfBlob={pdfBlob}
             />

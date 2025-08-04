@@ -194,25 +194,8 @@ function App() {
     }
   };
 
-  const handleSendWhatsApp = () => {
-    if (!invoiceData) return;
-
+  const handleSendWhatsApp = (message: string) => {
     try {
-      const subtotal = parseFloat(invoiceData.price) || 0;
-      const taxRate = parseFloat(invoiceData.tax) || 0;
-      const taxAmount = (subtotal * taxRate) / 100;
-      const total = subtotal + taxAmount;
-
-      const message = createWhatsAppMessage({
-        clientName: invoiceData.clientName,
-        serviceDescription: invoiceData.serviceDescription,
-        totalAmount: total,
-        dueDate: invoiceData.dueDate,
-        currency: invoiceData.settings.currency,
-        lineItems: invoiceData.lineItems,
-        language: language
-      });
-
       openWhatsApp(message);
     } catch (error) {
       console.error('WhatsApp sharing error:', error);

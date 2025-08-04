@@ -37,13 +37,82 @@ const WhatsAppMessageEditor: React.FC<WhatsAppMessageEditorProps> = ({
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [previewMessage, setPreviewMessage] = useState('');
+  const [userEdits, setUserEdits] = useState('');
 
-  // Générer le message de base une seule fois quand les données changent
+  // Create a unique key for this invoice
+  const getStorageKey = () => {
+    const dataHash = JSON.stringify({
+      clientName: data.clientName,
+      serviceDescription: data.serviceDescription,
+      totalAmount: data.totalAmount,
+      dueDate: data.dueDate,
+      lineItems: data.lineItems
+    });
+    return `whatsapp_message_${btoa(dataHash).slice(0, 20)}`;
+  };
+
+  // Create a key for user edits
+  const getUserEditsKey = () => {
+    const dataHash = JSON.stringify({
+      clientName: data.clientName,
+      serviceDescription: data.serviceDescription,
+      totalAmount: data.totalAmount,
+      dueDate: data.dueDate,
+      lineItems: data.lineItems
+    });
+    return `whatsapp_user_edits_${btoa(dataHash).slice(0, 20)}`;
+  };
+
+  // Load or generate message
   useEffect(() => {
+    const storageKey = getStorageKey();
+    const userEditsKey = getUserEditsKey();
+    const savedUserEdits = localStorage.getItem(userEditsKey);
+    
+    // Generate new base message with current language
     const baseMessage = createWhatsAppMessage(data);
-    const decodedMessage = decodeURIComponent(baseMessage);
-    setPreviewMessage(decodedMessage);
-  }, [data, language]);
+    const decodedBaseMessage = decodeURIComponent(baseMessage);
+    
+    if (savedUserEdits) {
+      // If user has made edits, append them to the new base message
+      setPreviewMessage(decodedBaseMessage + '\n\n' + savedUserEdits);
+      setUserEdits(savedUserEdits);
+    } else {
+      // Use new base message
+      setPreviewMessage(decodedBaseMessage);
+      setUserEdits('');
+    }
+    
+    // Save the new base message
+    localStorage.setItem(storageKey, decodedBaseMessage);
+  }, [data.clientName, data.serviceDescription, data.totalAmount, data.dueDate, data.lineItems, language]);
+
+  const handleMessageChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newMessage = e.target.value;
+    setPreviewMessage(newMessage);
+    
+    // Extract user edits (everything after the base message)
+    const baseMessage = createWhatsAppMessage(data);
+    const decodedBaseMessage = decodeURIComponent(baseMessage);
+    
+    let newUserEdits = '';
+    if (newMessage.includes(decodedBaseMessage)) {
+      // Find the part after the base message
+      const baseMessageIndex = newMessage.indexOf(decodedBaseMessage);
+      if (baseMessageIndex !== -1) {
+        newUserEdits = newMessage.substring(baseMessageIndex + decodedBaseMessage.length).trim();
+      }
+    } else {
+      // If base message is not found, treat the whole message as user edits
+      newUserEdits = newMessage;
+    }
+    
+    setUserEdits(newUserEdits);
+    
+    // Save user edits to localStorage
+    const userEditsKey = getUserEditsKey();
+    localStorage.setItem(userEditsKey, newUserEdits);
+  };
 
   const handleSendMessage = () => {
     // Encoder le message édité directement
@@ -107,7 +176,7 @@ const WhatsAppMessageEditor: React.FC<WhatsAppMessageEditorProps> = ({
           </label>
           <textarea
             value={previewMessage}
-            onChange={(e) => setPreviewMessage(e.target.value)}
+            onChange={handleMessageChange}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
             rows={12}
             placeholder={t('customMessagePlaceholder')}
