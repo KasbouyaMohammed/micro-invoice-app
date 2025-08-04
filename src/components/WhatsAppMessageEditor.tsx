@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MessageCircle, Send, Phone } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { createCustomizableWhatsAppMessage, sendPDFViaWhatsApp } from '../utils/whatsappShare';
+import { createWhatsAppMessage, sendPDFViaWhatsApp } from '../utils/whatsappShare';
 
 interface WhatsAppMessageData {
   clientName: string;
@@ -34,17 +34,16 @@ const WhatsAppMessageEditor: React.FC<WhatsAppMessageEditorProps> = ({
   pdfBlob
 }) => {
   const { t, language } = useLanguage();
-  const [isEditing, setIsEditing] = useState(false);
-  const [customMessage, setCustomMessage] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [showPhoneInput, setShowPhoneInput] = useState(false);
   const [previewMessage, setPreviewMessage] = useState('');
 
-  // Générer le message de base
+  // Générer le message de base une seule fois quand les données changent
   useEffect(() => {
-    const baseMessage = createCustomizableWhatsAppMessage(data, customMessage);
-    setPreviewMessage(decodeURIComponent(baseMessage));
-  }, [data, customMessage, language]);
+    const baseMessage = createWhatsAppMessage(data);
+    const decodedMessage = decodeURIComponent(baseMessage);
+    setPreviewMessage(decodedMessage);
+  }, [data, language]);
 
   const handleSendMessage = () => {
     // Encoder le message édité directement
@@ -89,8 +88,6 @@ const WhatsAppMessageEditor: React.FC<WhatsAppMessageEditorProps> = ({
     return cleaned;
   };
 
-
-
   return (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
@@ -106,14 +103,14 @@ const WhatsAppMessageEditor: React.FC<WhatsAppMessageEditorProps> = ({
         {/* Champ de texte éditable pour le message WhatsApp */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            {t('whatsappMessage')}
+            {t('customMessage')}
           </label>
           <textarea
             value={previewMessage}
             onChange={(e) => setPreviewMessage(e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 resize-none font-mono text-sm"
             rows={12}
-            placeholder={t('whatsappMessagePlaceholder')}
+            placeholder={t('customMessagePlaceholder')}
           />
         </div>
         
